@@ -1,0 +1,23 @@
+feature,low,high,source
+heart_rate,0,390,Harutyunyan et al. 2019
+temperature,14.2,47,Harutyunyan et al. 2019
+spo2,0,150,Harutyunyan et al. 2019
+sbp,0,375,Harutyunyan et al. 2019
+dbp,0,375,Harutyunyan et al. 2019
+map,0,375,Harutyunyan et al. 2019
+anion_gap,0,55,Harutyunyan et al. 2019
+creatinine,0,66,Harutyunyan et al. 2019
+hemoglobin,0,30,Harutyunyan et al. 2019
+mchc,0,36,Zandecki et al. 2007
+inr,0,,not applied -- no source found (see limitation note)
+platelets,0,2200,Harutyunyan et al. 2019
+total_bilirubin,0,66,Harutyunyan et al. 2019
+potassium,0,15,Harutyunyan et al. 2019
+phosphate,0,20,Harutyunyan et al. 2019
+lactate,0,33,Harutyunyan et al. 2019
+ph,6.3,10,Harutyunyan et al. 2019
+pao2,0,770,Harutyunyan et al. 2019
+paco2,0,220,Harutyunyan et al. 2019
+bun,0,275,Harutyunyan et al. 2019
+wbc,0,1100,Harutyunyan et al. 2019
+urine_output,0,2445,Harutyunyan et al. 2019
