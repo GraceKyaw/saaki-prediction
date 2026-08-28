@@ -16,6 +16,7 @@ notebooks/    # exploration, modelling, results
 sql/          # cohort and feature extraction queries
 src/          # reusable code
 figures/      # generated plots and diagrams
+documents/    # write-up, reports, reading notes, references
 ```
 
 ## Data

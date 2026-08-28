@@ -102,7 +102,7 @@ def plot_calibration(series, title="Calibration on the held-out test set",
     ax.set_title(title)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    ax.legend()
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1))
 
     plt.show()
     return fig
@@ -308,7 +308,7 @@ def plot_decision_curve(curves, title="Decision Curve Analysis"):
     ax.set_ylabel("net benefit")
     ax.set_title(title)
     ax.set_xlim(0, 1)
-    ax.legend()
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1))
 
     plt.show()
     return fig
@@ -467,3 +467,240 @@ def cluster_subgroup_report(y_true, y_proba, group_values, patient_ids, threshol
         all_results.append(result)
 
     return pd.concat(all_results, ignore_index=True)
+
+
+# ---------------------------------------------------------------------
+# Permutation feature importance
+# ---------------------------------------------------------------------
+
+
+def permutation_importance(model, X_test, y_test, feature_names, metric_func,
+                           n_repeats=10, random_state=42, predict_fn=None):
+    """
+    For each feature, shuffle its values n_repeats times, measure the drop in
+    metric_func's score each time, and return the average drop as that
+    feature's importance. Larger drop means more important.
+
+    X_test may be 2D (rows by features) or 3D (rows by timesteps by features).
+    For 3D input the feature's whole per-row block is permuted as one unit, so
+    the entire trajectory moves together. predict_fn overrides how predictions
+    are obtained, for models taking more than one input.
+    """
+    X_test = np.asarray(X_test)
+    y_test = np.asarray(y_test)
+
+    if X_test.ndim not in (2, 3):
+        raise ValueError(f"X_test must be 2D or 3D, got {X_test.ndim}D")
+    if X_test.shape[-1] != len(feature_names):
+        raise ValueError(
+            f"feature_names has {len(feature_names)} entries but X_test has "
+            f"{X_test.shape[-1]} features"
+        )
+
+    if predict_fn is None:
+        def predict_fn(X):
+            return np.asarray(model.predict(X, verbose=0)).ravel()
+
+    baseline = float(metric_func(y_test, predict_fn(X_test)))
+    rng = np.random.default_rng(random_state)
+    n_rows = X_test.shape[0]
+
+    rows = []
+    for j, name in enumerate(feature_names):
+        drops = np.empty(n_repeats)
+        for r in range(n_repeats):
+            X_perm = X_test.copy()
+            order = rng.permutation(n_rows)
+            if X_test.ndim == 2:
+                X_perm[:, j] = X_test[:, j][order]
+            else:
+                X_perm[:, :, j] = X_test[:, :, j][order]
+            drops[r] = baseline - float(metric_func(y_test, predict_fn(X_perm)))
+        rows.append({
+            "feature": name,
+            "importance": float(drops.mean()),
+            "importance_std": float(drops.std()),
+        })
+
+    result = pd.DataFrame(rows).sort_values("importance", ascending=False)
+    result.attrs["baseline"] = baseline
+    result.attrs["n_repeats"] = n_repeats
+    return result.reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------
+# Bootstrap confidence interval for a median
+# ---------------------------------------------------------------------
+
+
+def bootstrap_median_ci(values, n_bootstrap=1000, confidence=0.95, random_state=42):
+    """
+    Bootstrap confidence interval for the median of one array.
+
+    Takes the values, resamples them with replacement, and returns a dict with
+    the median, the interval bounds, and the number of values it rests on. A
+    small n gives a wide interval, so n is returned rather than left implicit.
+    """
+    values = np.asarray(values, dtype=float)
+    values = values[~np.isnan(values)]
+    n = len(values)
+
+    if n == 0:
+        return {
+            "median": float("nan"), "ci_lower": float("nan"),
+            "ci_upper": float("nan"), "n": 0,
+            "confidence": confidence, "n_bootstrap": n_bootstrap,
+            "bootstrap_medians": np.empty(0),
+        }
+
+    rng = np.random.default_rng(random_state)
+    medians = np.empty(n_bootstrap)
+    for i in range(n_bootstrap):
+        idx = rng.integers(0, n, size=n)  # resample with replacement
+        medians[i] = np.median(values[idx])
+
+    alpha = 1 - confidence
+    return {
+        "median": float(np.median(values)),
+        "ci_lower": float(np.percentile(medians, 100 * alpha / 2)),
+        "ci_upper": float(np.percentile(medians, 100 * (1 - alpha / 2))),
+        "n": int(n),
+        "confidence": confidence,
+        "n_bootstrap": n_bootstrap,
+        "bootstrap_medians": medians,
+    }
+
+
+# ---------------------------------------------------------------------
+# Feature importance and subgroup charts
+# ---------------------------------------------------------------------
+
+
+def plot_feature_importance(series, top_n=10, title="Feature importance",
+                            figsize=(9, 6)):
+    """
+    Horizontal bar chart of the highest-importance features.
+
+    Takes a list of (feature_names, importance_values, label) tuples. Features
+    are ranked by the first series and the same features are shown for each
+    series, so the bars line up. Displays the chart and returns the figure.
+    """
+    if not series:
+        raise ValueError("series is empty: pass at least one "
+                         "(feature_names, importance_values, label) tuple")
+    if len(series) > len(SERIES_COLORS):
+        raise ValueError(
+            f"{len(series)} series requested but only {len(SERIES_COLORS)} "
+            f"colours are defined. Add an explicit colour to SERIES_COLORS."
+        )
+
+    lookups = []
+    for names, values, label in series:
+        if len(names) != len(values):
+            raise ValueError(f"{label}: {len(names)} names but {len(values)} values")
+        lookups.append((dict(zip(names, values)), label))
+
+    ranking = sorted(lookups[0][0].items(), key=lambda kv: kv[1], reverse=True)
+    features = [name for name, _ in ranking[:top_n]][::-1]
+
+    fig, ax = plt.subplots(figsize=figsize)
+    positions = np.arange(len(features))
+    height = 0.8 / len(lookups)
+
+    for i, (lookup, label) in enumerate(lookups):
+        offset = (i - (len(lookups) - 1) / 2) * height
+        ax.barh(positions + offset, [lookup.get(f, 0.0) for f in features],
+                height, color=SERIES_COLORS[i], label=label)
+
+    ax.set_yticks(positions)
+    ax.set_yticklabels(features)
+    ax.set_xlabel("importance")
+    ax.set_title(title)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1))
+
+    plt.show()
+    return fig
+
+
+def plot_subgroup_specificity(series, metric="specificity_non_AKI",
+                              title="Specificity by age band", figsize=(9, 6)):
+    """
+    Line chart of one metric across ordered subgroups, one line per model.
+
+    Takes a list of (subgroup_labels, values, label) tuples, subgroups given in
+    the order they should appear. Displays the chart and returns the figure.
+    """
+    if not series:
+        raise ValueError("series is empty: pass at least one "
+                         "(subgroups, values, label) tuple")
+    if len(series) > len(SERIES_COLORS):
+        raise ValueError(
+            f"{len(series)} series requested but only {len(SERIES_COLORS)} "
+            f"colours are defined. Add an explicit colour to SERIES_COLORS."
+        )
+
+    fig, ax = plt.subplots(figsize=figsize)
+    for i, (subgroups, values, label) in enumerate(series):
+        ax.plot(list(subgroups), list(values), marker="o",
+                color=SERIES_COLORS[i], label=label)
+
+    ax.set_xlabel("subgroup")
+    ax.set_ylabel(metric)
+    ax.set_ylim(0, 1)
+    ax.set_title(title)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1))
+
+    plt.show()
+    return fig
+
+
+def plot_feature_importance_grid(series, top_n=10, title="Feature importance",
+                                 ncols=3, panel_size=(6.0, 4.2)):
+    """
+    One small panel per model, each ranked and labelled on its own axis.
+
+    Takes a list of (feature_names, importance_values, label) tuples. Use this
+    where the series do not share a feature vocabulary, so a single shared
+    category axis would leave most series with nothing to plot.
+    Displays the chart and returns the figure.
+    """
+    if not series:
+        raise ValueError("series is empty: pass at least one "
+                         "(feature_names, importance_values, label) tuple")
+    if len(series) > len(SERIES_COLORS):
+        raise ValueError(
+            f"{len(series)} series requested but only {len(SERIES_COLORS)} "
+            f"colours are defined. Add an explicit colour to SERIES_COLORS."
+        )
+
+    nrows = int(np.ceil(len(series) / ncols))
+    fig, axes = plt.subplots(nrows, ncols,
+                             figsize=(panel_size[0] * ncols, panel_size[1] * nrows))
+    flat = np.atleast_1d(axes).ravel()
+
+    for i, (names, values, label) in enumerate(series):
+        if len(names) != len(values):
+            raise ValueError(f"{label}: {len(names)} names but {len(values)} values")
+        ax = flat[i]
+        ranked = sorted(zip(names, values), key=lambda kv: kv[1], reverse=True)[:top_n]
+        features = [name for name, _ in ranked][::-1]
+        heights = [value for _, value in ranked][::-1]
+
+        ax.barh(np.arange(len(features)), heights, color=SERIES_COLORS[i])
+        ax.set_yticks(np.arange(len(features)))
+        ax.set_yticklabels(features, fontsize=13)
+        ax.set_xlabel("importance", fontsize=14)
+        ax.set_title(label, fontsize=17)
+        ax.tick_params(axis="x", labelsize=12)
+
+    for ax in flat[len(series):]:
+        ax.set_visible(False)
+
+    fig.suptitle(title, fontsize=17)
+    fig.tight_layout()
+    # tight_layout leaves a wide gap between rows once the panel titles are
+    # enlarged; pull the rows together without touching the horizontal gap,
+    # which the long feature labels need
+    fig.subplots_adjust(hspace=0.45)
+    plt.show()
+    return fig

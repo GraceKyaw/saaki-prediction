@@ -1,4 +1,13 @@
-# ---- Patient-level data (MIMIC / eICU derived, credentialed access) ----
+# ---- instructions/ is strictly local — never committed, folder and all ----
+instructions/
+
+# ---- data/ is strictly local — NOTHING inside it is ever committed ----
+# This blanket rule covers every file type and every subdirectory.
+# Only the .gitkeep placeholder is tracked, to keep the folder in the repo.
+data/*
+!data/.gitkeep
+
+# ---- Patient-level data anywhere else in the tree ----
 # Never commit extracted cohorts, features, splits or predictions.
 *.csv
 *.parquet
@@ -11,6 +20,10 @@
 *.sav
 *.xlsx
 *.xls
+
+# Exception: reference lookup tables are code-adjacent config, not patient
+# data, and are meant to be tracked (e.g. tier1_outlier_bounds.csv).
+!src/reference/*.csv
 
 # ---- Trained models / large binaries ----
 *.joblib
