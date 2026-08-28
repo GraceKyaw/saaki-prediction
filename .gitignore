@@ -2,10 +2,15 @@
 instructions/
 
 # ---- data/ is strictly local — NOTHING inside it is ever committed ----
-# This blanket rule covers every file type and every subdirectory.
-# Only the .gitkeep placeholder is tracked, to keep the folder in the repo.
-data/*
-!data/.gitkeep
+# The whole folder, every file type and every subdirectory. The notebooks
+# create it on first run, so no placeholder needs tracking.
+data/
+
+# ---- backup/ is strictly local — never committed, folder and all ----
+backup/
+
+# ---- exported commit history, kept locally rather than in the repo ----
+documents/commit_history.*
 
 # ---- Patient-level data anywhere else in the tree ----
 # Never commit extracted cohorts, features, splits or predictions.
