@@ -107,7 +107,7 @@ def encode(df):
 
 def smote_resample(X_train, y_train, random_state=42):
     """
-    Generate synthetic minority-class samples. Train data only.
+    Generate synthetic minority-class samples (Chawla et al., 2002). Train data only.
 
     Returns the resampled X and y. imbalanced-learn is imported inside the
     function, so it is only needed when SMOTE is actually used.
