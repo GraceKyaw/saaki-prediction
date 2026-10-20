@@ -9,6 +9,12 @@ data/
 # ---- backup/ is strictly local — never committed, folder and all ----
 backup/
 
+# ---- demo_version/ holds the trimmed demonstration notebooks — local only ----
+demo_version/
+
+# ---- submitted code compilation for assessment — local only ----
+24164677-Thiri Kyaw FPR.txt
+
 # ---- exported commit history, kept locally rather than in the repo ----
 documents/commit_history.*
 
