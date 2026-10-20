@@ -6,8 +6,10 @@ representations of the same patient data.
 
 ## Status
 
-MSc dissertation research project (2026). The code and results here are the
-version submitted for assessment; later edits are limited to documentation.
+MSc dissertation research project (2026). The modelling and evaluation logic
+and the reported results are preserved from the submitted dissertation.
+Subsequent changes are limited to documentation, comments and explanatory
+output text.
 
 This is retrospective research on a public critical-care database, not a
 validated or deployed clinical tool.
@@ -31,9 +33,10 @@ Sepsis-3 for sepsis onset and KDIGO stage ≥ 1 for AKI:
    stay of at least 48 hours, no AKI before sepsis onset, and at least 24
    hours between sepsis onset and ICU discharge.
 2. **12,972 stays** remain after keeping only each patient's first ICU stay,
-   by sepsis onset time. One stay was then dropped for not having a full 24
-   hours of data when re-checked from its timestamps.
-3. **5,069 stays** remain after excluding the 7,902 whose AKI occurred within
+   by sepsis onset time.
+3. **12,971 stays** remain after one stay failed the final 24-hour check,
+   re-computed from its timestamps.
+4. **5,069 stays** remain after excluding the 7,902 whose AKI occurred within
    the 24-hour observation window. Of these, 60.5% develop AKI afterwards.
 
 With one stay per patient, every stay-level row is a different patient, so
@@ -81,7 +84,11 @@ Held-out test set, no imbalance handling, 1,014 stays (prevalence 60.5%):
   imbalance handling, but specificity was lower. The GRU did not flag AKI
   measurably earlier than the static FFNN: median lead time was 20 h against
   19 h, with overlapping intervals.
-- Class weighting traded recall for specificity without improving AUPRC.
+- In all four stay-level models, class weighting lowered recall and raised
+  specificity (XGBoost recall 0.90 → 0.66, specificity 0.24 → 0.58), with no
+  clear change in AUPRC, and it worsened calibration. AKI is the majority
+  class here (60.5%), so weighting shifts emphasis towards patients without
+  AKI.
 
 ## Limitations and trade-offs
 
