@@ -61,13 +61,15 @@ and class weighting. Each uses a stratified 80/20 train/test split
 (grouped by patient for B3), 50-trial Optuna hyperparameter searches over
 five inner cross-validation folds, and a single evaluation on the held-out
 test set. Winsorization, imputation and scaling are fitted on training data
-only. Reported with bootstrap 95% confidence intervals (resampling whole
-patients for B3): AUPRC (primary), AUROC, recall, specificity, precision, F1,
-calibration, decision curves, subgroup performance and lead time.
+only. AUPRC (primary), AUROC, recall, specificity, precision and F1 are
+reported with bootstrap 95% confidence intervals (resampling whole patients
+for B3), alongside calibration, decision curves and subgroup performance.
+Lead time to AKI onset is also reported for the three stay-level neural
+networks.
 
 ## Principal findings
 
-Held-out test set, no imbalance handling, 1,014 stays (prevalence 60.5%):
+Held-out test set, no imbalance handling, 1,014 stays (prevalence 60.6%):
 
 | model | AUPRC [95% CI] | AUROC [95% CI] |
 |---|---|---|
@@ -78,17 +80,14 @@ Held-out test set, no imbalance handling, 1,014 stays (prevalence 60.5%):
 
 - XGBoost on static aggregates scored highest, but every confidence interval
   overlaps, and all models are only moderately above the no-skill AUPRC of
-  0.605.
+  0.606.
 - The temporal comparison gave mixed findings. Trend features (B4) did not
-  change AUPRC compared with aggregates (B1). Recall was higher without
-  imbalance handling, but specificity was lower. The GRU did not flag AKI
-  measurably earlier than the static FFNN: median lead time was 20 h against
-  19 h, with overlapping intervals.
-- In all four stay-level models, class weighting lowered recall and raised
-  specificity (XGBoost recall 0.90 → 0.66, specificity 0.24 → 0.58), with no
-  clear change in AUPRC, and it worsened calibration. AKI is the majority
-  class here (60.5%), so weighting shifts emphasis towards patients without
-  AKI.
+  clearly change AUPRC compared with aggregates (B1). With no imbalance
+  handling, B4 had higher recall than B1 (0.92 against 0.86) but lower
+  specificity (0.125 against 0.28), with non-overlapping intervals for both.
+  The GRU did not flag AKI measurably earlier than the static FFNN: median
+  lead time was 20 h against 19 h, with overlapping intervals.
+- In all four stay-level models, class weighting lowered recall and raised specificity (XGBoost recall 0.90 → 0.66, specificity 0.24 → 0.58), with no clear change in AUPRC, and worsened calibration. AKI is the majority class here (60.5%), so weighting shifts emphasis towards patients without AKI.
 
 ## Limitations and trade-offs
 
@@ -98,9 +97,10 @@ Held-out test set, no imbalance handling, 1,014 stays (prevalence 60.5%):
 - **Age subgroups.** For XGBoost with no imbalance handling, specificity
   (correctly clearing patients who did not develop AKI) fell with age: 0.51 in
   the 18–40 band, 0.25 in 40–65 and 0.12 in 65–90. Older patients without AKI
-  were therefore flagged much more often. This figure is for that one
-  configuration; the other models' subgroup results are in
-  `notebooks/model_comparison.ipynb`.
+  were therefore flagged much more often. These figures are for that one
+  configuration. Age-band specificity for the other models is charted in
+  `notebooks/model_comparison.ipynb`, and full subgroup results by gender,
+  age and admission type are in each training notebook.
 - **Comparability.** B3 is labelled per window and has a different positive
   rate (24.3% against 60.5%), so its AUPRC is not directly comparable with the
   stay-level models and it is reported separately.
@@ -135,8 +135,8 @@ methodology and figures, but cannot reproduce the data-dependent experiments
 from this repository alone.
 
 Nothing under `data/` is tracked: `.gitignore` excludes the whole folder, as
-well as `*.csv`, `*.parquet`, model binaries and prediction files elsewhere.
-Only code, SQL, aggregate metrics and figures belong in version control.
+well as `*.csv`, `*.parquet` and model binaries elsewhere. Only code, SQL and
+figures are tracked; aggregate results are summarised in this README.
 
 ## Reproducing
 
